@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>استخراج النص من الصور والبحث في جوجل</title>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -21,7 +22,7 @@
         }
         
         .container {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 20px;
         }
@@ -37,13 +38,14 @@
         }
         
         h1 {
-            font-size: 2.5rem;
+            font-size: 2.2rem;
             margin-bottom: 10px;
         }
         
         .subtitle {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             opacity: 0.9;
+            margin-top: 10px;
         }
         
         .app-container {
@@ -66,12 +68,12 @@
         }
         
         .results-section {
-            flex: 2;
+            flex: 1;
             min-width: 300px;
         }
         
         .section-title {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             margin-bottom: 20px;
             color: #1a2980;
             border-bottom: 2px solid #26d0ce;
@@ -104,6 +106,7 @@
         .camera-placeholder {
             text-align: center;
             color: #666;
+            padding: 20px;
         }
         
         .camera-placeholder i {
@@ -115,15 +118,15 @@
         .controls {
             display: flex;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
             justify-content: center;
         }
         
         .btn {
-            padding: 12px 25px;
+            padding: 12px 20px;
             border: none;
-            border-radius: 50px;
-            font-size: 1.1rem;
+            border-radius: 8px;
+            font-size: 1rem;
             cursor: pointer;
             transition: all 0.3s ease;
             display: flex;
@@ -165,36 +168,33 @@
             padding: 15px;
             margin: 20px 0;
             border: 1px solid #eee;
-            min-height: 100px;
+            min-height: 120px;
             font-size: 1.1rem;
             line-height: 1.6;
+            word-break: break-word;
         }
         
-        .results-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
-        }
-        
-        .result-item {
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-            height: 200px;
-        }
-        
-        .result-item:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-        }
-        
-        .result-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .google-link {
             display: block;
+            background: #f8f9fa;
+            border: 1px solid #dadce0;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-decoration: none;
+            color: #1a0dab;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .google-link:hover {
+            background: #e8eaed;
+            box-shadow: 0 1px 6px rgba(32, 33, 36, 0.28);
+        }
+        
+        .google-link:before {
+            content: "🔍";
+            margin-left: 10px;
         }
         
         .loading {
@@ -223,6 +223,7 @@
             border-radius: 10px;
             padding: 20px;
             margin-top: 30px;
+            font-size: 0.95rem;
         }
         
         .instructions h3 {
@@ -238,14 +239,15 @@
         .language-selector {
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 15px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
         
         .lang-btn {
-            padding: 10px 20px;
+            padding: 8px 16px;
             border: 2px solid #1a2980;
-            border-radius: 30px;
+            border-radius: 20px;
             background: transparent;
             color: white;
             cursor: pointer;
@@ -261,13 +263,23 @@
             background: rgba(26, 41, 128, 0.5);
         }
         
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+            display: none;
+        }
+        
         @media (max-width: 768px) {
             .app-container {
                 flex-direction: column;
             }
             
             h1 {
-                font-size: 2rem;
+                font-size: 1.8rem;
             }
             
             .btn {
@@ -321,7 +333,11 @@
                 
                 <div class="loading" id="loading">
                     <div class="spinner"></div>
-                    <p>جارٍ معالجة الصورة والبحث في جوجل...</p>
+                    <p>جارٍ استخراج النص من الصورة...</p>
+                </div>
+                
+                <div class="success-message" id="success-message">
+                    تم استخراج النص بنجاح! يمكنك الآن البحث في جوجل
                 </div>
                 
                 <div class="result-container" id="result-container">
@@ -330,10 +346,10 @@
                         سيظهر النص المستخرج هنا بعد معالجة الصورة.
                     </div>
                     
-                    <h3>نتائج صور جوجل:</h3>
-                    <div class="results-grid" id="results-grid">
-                        <!-- نتائج البحث ستظهر هنا -->
-                    </div>
+                    <h3>رابط البحث في جوجل:</h3>
+                    <a href="#" class="google-link" id="google-link" target="_blank">
+                        انقر هنا للبحث في جوجل باستخدام النص المستخرج
+                    </a>
                 </div>
             </div>
         </div>
@@ -345,7 +361,7 @@
                 <li>انقر على "تشغيل الكاميرا" للبدء باستخدام الكاميرا</li>
                 <li>انقر على "التقاط صورة" عند استعدادك أو استخدم "رفع صورة" لتحميل صورة من جهازك</li>
                 <li>انتظر حتى تتم معالجة الصورة واستخراج النص</li>
-                <li>شاهد النتائج من جوجل مع الصور المرتبطة بالنص المستخرج</li>
+                <li>انقر على رابط البحث في جوجل للعثور على النتائج</li>
             </ol>
         </div>
     </div>
@@ -360,10 +376,11 @@
         const imageInput = document.getElementById('image-input');
         const cameraPlaceholder = document.getElementById('camera-placeholder');
         const extractedText = document.getElementById('extracted-text');
-        const resultsGrid = document.getElementById('results-grid');
+        const googleLink = document.getElementById('google-link');
         const resultContainer = document.getElementById('result-container');
         const loading = document.getElementById('loading');
         const langButtons = document.querySelectorAll('.lang-btn');
+        const successMessage = document.getElementById('success-message');
         
         let stream = null;
         let currentLang = 'eng';
@@ -422,57 +439,40 @@
             }
         });
         
-        // معالجة الصورة
-        function processImage(imageData) {
+        // معالجة الصورة باستخدام Tesseract.js
+        async function processImage(imageData) {
             // إظهار مؤشر التحميل وإخفاء النتائج السابقة
             loading.style.display = 'block';
             resultContainer.style.display = 'none';
+            successMessage.style.display = 'none';
             
-            // محاكاة عملية استخراج النص (في تطبيق حقيقي سيتم استخدام Tesseract.js أو API مشابه)
-            setTimeout(() => {
-                // هذه محاكاة فقط - في التطبيق الحقيقي سيتم استخدام Tesseract.js
-                const sampleTexts = {
-                    eng: "This is a sample text extracted from the image. In a real application, this would be the actual text recognized by the OCR system.",
-                    rus: "Это образец текста, извлеченного из изображения. В реальном приложении это был бы фактический текст, распознанный системой OCR."
-                };
-                
-                const extracted = sampleTexts[currentLang];
+            try {
+                // استخدام Tesseract.js لاستخراج النص من الصورة
+                const { data: { text } } = await Tesseract.recognize(
+                    imageData,
+                    currentLang === 'eng' ? 'eng' : 'rus',
+                    { logger: progress => console.log(progress) }
+                );
                 
                 // عرض النص المستخرج
-                extractedText.textContent = extracted;
+                extractedText.textContent = text.trim() || 'لم يتم التعرف على نص في الصورة';
                 
-                // محاكاة نتائج البحث من جوجل
-                displayGoogleResults(extracted);
+                // إنشاء رابط بحث جوجل
+                const searchQuery = encodeURIComponent(text.trim());
+                googleLink.href = `https://www.google.com/search?q=${searchQuery}&tbm=isch`;
+                googleLink.textContent = `البحث في جوجل عن: ${text.trim().substring(0, 50)}${text.trim().length > 50 ? '...' : ''}`;
                 
+                // إظهار رسالة النجاح
+                successMessage.style.display = 'block';
+                
+            } catch (error) {
+                extractedText.textContent = 'حدث خطأ أثناء استخراج النص. يرجى المحاولة مرة أخرى.';
+                console.error('Error in text extraction:', error);
+            } finally {
                 // إخفاء التحميل وإظهار النتائج
                 loading.style.display = 'none';
                 resultContainer.style.display = 'block';
-            }, 2000);
-        }
-        
-        // عرض نتائج جوجل
-        function displayGoogleResults(query) {
-            // مسح النتائج القديمة
-            resultsGrid.innerHTML = '';
-            
-            // محاكاة نتائج البحث (في تطبيق حقيقي سيتم استخدام Google Custom Search API)
-            const sampleImages = [
-                'https://via.placeholder.com/300/1a2980/ffffff?text=Google+Image+1',
-                'https://via.placeholder.com/300/26d0ce/ffffff?text=Google+Image+2',
-                'https://via.placeholder.com/300/ff6b6b/ffffff?text=Google+Image+3',
-                'https://via.placeholder.com/300/4ecdc4/ffffff?text=Google+Image+4',
-                'https://via.placeholder.com/300/ffbe0b/ffffff?text=Google+Image+5',
-                'https://via.placeholder.com/300/fb5607/ffffff?text=Google+Image+6',
-                'https://via.placeholder.com/300/ff006e/ffffff?text=Google+Image+7',
-                'https://via.placeholder.com/300/8338ec/ffffff?text=Google+Image+8'
-            ];
-            
-            sampleImages.forEach(imgSrc => {
-                const imgElement = document.createElement('div');
-                imgElement.className = 'result-item';
-                imgElement.innerHTML = `<img src="${imgSrc}" alt="نتيجة بحث جوجل">`;
-                resultsGrid.appendChild(imgElement);
-            });
+            }
         }
         
         // إيقاف الكاميرا عند إغلاق الصفحة
@@ -481,6 +481,16 @@
                 stream.getTracks().forEach(track => track.stop());
             }
         });
+        
+        // إظهار رسالة الترحيب عند التحميل
+        window.onload = () => {
+            setTimeout(() => {
+                successMessage.textContent = 'مرحباً! ابدأ باستخدام التطبيق عن طريق تحميل صورة أو التقاط صورة جديدة.';
+                successMessage.style.display = 'block';
+                successMessage.style.background = '#cce5ff';
+                successMessage.style.color = '#004085';
+            }, 1000);
+        };
     </script>
 </body>
 </html>
