@@ -115,6 +115,12 @@
             color: #26d0ce;
         }
         
+        .preview-image {
+            max-width: 100%;
+            max-height: 100%;
+            display: none;
+        }
+        
         .controls {
             display: flex;
             flex-wrap: wrap;
@@ -185,11 +191,13 @@
             color: #1a0dab;
             font-size: 1.1rem;
             transition: all 0.3s ease;
+            text-align: center;
         }
         
         .google-link:hover {
             background: #e8eaed;
             box-shadow: 0 1px 6px rgba(32, 33, 36, 0.28);
+            transform: translateY(-2px);
         }
         
         .google-link:before {
@@ -273,6 +281,15 @@
             display: none;
         }
         
+        .info-box {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+        
         @media (max-width: 768px) {
             .app-container {
                 flex-direction: column;
@@ -308,6 +325,7 @@
                 <div class="camera-container">
                     <video id="video" autoplay playsinline></video>
                     <canvas id="canvas"></canvas>
+                    <img id="preview-image" class="preview-image" alt="معاينة الصورة">
                     <div class="camera-placeholder" id="camera-placeholder">
                         <i>📷</i>
                         <p>الكاميرا غير نشطة</p>
@@ -325,6 +343,10 @@
                         <span>رفع صورة</span>
                     </button>
                     <input type="file" id="image-input" accept="image/*">
+                </div>
+                
+                <div class="info-box">
+                    <p>لأفضل النتائج، تأكد من أن الصورة واضحة والنصوص مكتوبة بخط واضح</p>
                 </div>
             </div>
             
@@ -360,7 +382,7 @@
                 <li>اختر لغة النص في الصورة (الإنجليزية أو الروسية)</li>
                 <li>انقر على "تشغيل الكاميرا" للبدء باستخدام الكاميرا</li>
                 <li>انقر على "التقاط صورة" عند استعدادك أو استخدم "رفع صورة" لتحميل صورة من جهازك</li>
-                <li>انتظر حتى تتم معالجة الصورة واستخراج النص</li>
+                <li>انتظر حتى تتم معالجة الصورة واستخراج النص (عادةً 10-30 ثانية)</li>
                 <li>انقر على رابط البحث في جوجل للعثور على النتائج</li>
             </ol>
         </div>
@@ -370,6 +392,7 @@
         // متغيرات التطبيق
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
+        const previewImage = document.getElementById('preview-image');
         const startCameraBtn = document.getElementById('start-camera');
         const captureBtn = document.getElementById('capture-btn');
         const uploadBtn = document.getElementById('upload-btn');
@@ -402,6 +425,7 @@
                 });
                 video.srcObject = stream;
                 video.style.display = 'block';
+                previewImage.style.display = 'none';
                 cameraPlaceholder.style.display = 'none';
                 captureBtn.disabled = false;
                 startCameraBtn.textContent = 'إعادة تشغيل الكاميرا';
@@ -420,6 +444,13 @@
             
             // تحويل الصورة إلى رابط بيانات
             const imageDataUrl = canvas.toDataURL('image/jpeg');
+            
+            // عرض معاينة للصورة
+            previewImage.src = imageDataUrl;
+            previewImage.style.display = 'block';
+            video.style.display = 'none';
+            
+            // معالجة الصورة
             processImage(imageDataUrl);
         });
         
@@ -433,6 +464,13 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
+                    // عرض معاينة للصورة
+                    previewImage.src = event.target.result;
+                    previewImage.style.display = 'block';
+                    video.style.display = 'none';
+                    cameraPlaceholder.style.display = 'none';
+                    
+                    // معالجة الصورة
                     processImage(event.target.result);
                 };
                 reader.readAsDataURL(file);
@@ -451,19 +489,22 @@
                 const { data: { text } } = await Tesseract.recognize(
                     imageData,
                     currentLang === 'eng' ? 'eng' : 'rus',
-                    { logger: progress => console.log(progress) }
+                    { logger: progress => updateProgress(progress) }
                 );
                 
                 // عرض النص المستخرج
-                extractedText.textContent = text.trim() || 'لم يتم التعرف على نص في الصورة';
+                const extracted = text.trim();
+                extractedText.textContent = extracted || 'لم يتم التعرف على نص في الصورة';
                 
                 // إنشاء رابط بحث جوجل
-                const searchQuery = encodeURIComponent(text.trim());
-                googleLink.href = `https://www.google.com/search?q=${searchQuery}&tbm=isch`;
-                googleLink.textContent = `البحث في جوجل عن: ${text.trim().substring(0, 50)}${text.trim().length > 50 ? '...' : ''}`;
-                
-                // إظهار رسالة النجاح
-                successMessage.style.display = 'block';
+                if (extracted) {
+                    const searchQuery = encodeURIComponent(extracted);
+                    googleLink.href = `https://www.google.com/search?q=${searchQuery}&tbm=isch`;
+                    googleLink.textContent = `البحث في جوجل عن: ${extracted.substring(0, 50)}${extracted.length > 50 ? '...' : ''}`;
+                    
+                    // إظهار رسالة النجاح
+                    successMessage.style.display = 'block';
+                }
                 
             } catch (error) {
                 extractedText.textContent = 'حدث خطأ أثناء استخراج النص. يرجى المحاولة مرة أخرى.';
@@ -472,6 +513,14 @@
                 // إخفاء التحميل وإظهار النتائج
                 loading.style.display = 'none';
                 resultContainer.style.display = 'block';
+            }
+        }
+        
+        // تحديث تقدم العملية
+        function updateProgress(progress) {
+            if (progress.status === 'recognizing text') {
+                const percent = Math.round(progress.progress * 100);
+                document.querySelector('#loading p').textContent = `جارٍ استخراج النص: ${percent}%`;
             }
         }
         
